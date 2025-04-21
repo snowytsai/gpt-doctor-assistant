@@ -45,3 +45,34 @@ if st.button("生成建議"):
 
             st.info(f"輸入 Token：{input_tokens}，輸出 Token：{output_tokens}")
             st.success(f"估算費用：約 ${total_cost:.4f} 美元")
+
+from streamlit_audiorecorder import audiorecorder
+import tempfile
+import base64
+
+st.subheader("🎙️ 錄音輸入")
+
+audio = audiorecorder("點我開始錄音", "錄音中...")
+
+if len(audio) > 0:
+    st.audio(audio.export().read(), format="audio/wav")
+
+    # 將錄音寫入暫存檔
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+        audio.export(tmp_file.name, format="wav")
+        audio_path = tmp_file.name
+
+    st.info("✅ 錄音完成，開始轉文字...")
+
+    import openai
+    openai.api_key = "你的API金鑰"
+
+    # 使用 Whisper 將語音轉成文字
+    with open(audio_path, "rb") as f:
+        transcript = openai.Audio.transcribe("whisper-1", f)
+
+    st.success("語音轉文字結果：")
+    st.write(transcript["text"])
+    
+    # 自動填入主訴欄位（可選）
+    user_input = transcript["text"]
