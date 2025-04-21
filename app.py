@@ -2,9 +2,7 @@ import streamlit as st
 import openai
 import tiktoken
 
-import av
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
-import numpy as np
+import openai
 import tempfile
 
 # 請替換成你自己的 OpenAI API Key
@@ -13,40 +11,23 @@ openai.api_key = "你的API金鑰"
 # Streamlit 標題
 st.title("醫師 GPT 問診助理")
 
-# 語音處理器
-class AudioProcessor(AudioProcessorBase):
-    def recv(self, frame):
-        audio = frame.to_ndarray()
-        self.recorded_audio = audio
-        return frame
+st.subheader("🎙️ 上傳語音檔案（.mp3 或 .wav）")
 
-st.subheader("🎙️ 錄音輸入（Beta）")
+audio_file = st.file_uploader("請上傳語音檔：", type=["wav", "mp3"])
 
-webrtc_ctx = webrtc_streamer(
-    key="speech-to-text",
-    mode="sendrecv",
-    in_audio=True,
-    audio_processor_factory=AudioProcessor,
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-)
+if audio_file is not None:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+        tmp.write(audio_file.read())
+        tmp_path = tmp.name
 
-if webrtc_ctx and webrtc_ctx.audio_receiver:
-    if st.button("⏺️ 轉文字"):
-        audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-        if audio_frames:
-            audio_data = b''.join([f.to_ndarray().tobytes() for f in audio_frames])
+    st.info("⏳ Whisper 正在辨識語音...")
+    with open(tmp_path, "rb") as f:
+        transcript = openai.Audio.transcribe("whisper-1", f)
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-                f.write(audio_data)
-                audio_path = f.name
-
-            st.info("⏳ 語音處理中...")
-            with open(audio_path, "rb") as f:
-                transcript = openai.Audio.transcribe("whisper-1", f)
-
-            st.success("✅ Whisper 語音轉文字結果：")
-            st.write(transcript["text"])
+    st.success("✅ 語音轉文字結果：")
+    st.write(transcript["text"])
+    # 你也可以自動把它填入 user_input，例如：
+    user_input = transcript["text"]
 
 
 # 使用者輸入（病患主訴 + 醫病對話）
